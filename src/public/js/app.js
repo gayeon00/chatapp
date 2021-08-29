@@ -1,51 +1,71 @@
-//여기는 이제 유저에게만 보여지는, frontend단으로 사용되는 js파일!
-const messageList = document.querySelector('ul');
-const messageForm = document.querySelector('#message');
-const nickForm = document.querySelector('#nick');
-//요기의 socket : server로 연결!!
-const socket = new WebSocket(`ws://${window.location.host}`); //이놈으로 frontend에서 backend로 메세지 보내고, backend로부터 메세지 받을 수 있도록 함!
+//socketio로 서버랑 연결해주는 코드!
+const socket = io();
 
-//JSON을 string으로 만들어서 socket.send()로 서버로 전송해줌!
-function makeMessage(type,payload) {
-    const msg = {type,payload};
-    return JSON.stringify(msg);
+const welcome = document.getElementById("welcome");
+const room = document.getElementById("room");
+
+room.hidden = true;
+let roomName;
+
+function addMessage(message){
+    const ul = room.querySelector('ul');
+    const li = document.createElement('li');
+    li.innerText = message;
+    ul.appendChild(li);
 }
 
-//server와의 connection이 open됐을때
-socket.addEventListener('open',()=>{
-    console.log('Connected to Server ✔');
-});
-
-//server에서 메세지를 보낼때 마다!
-socket.addEventListener('message',(message)=>{
-    const li = document.createElement('li');
-    li.innerText = message.data;
-    messageList.append(li);
-});
-
-//server가 offline으로 됐을때!
-socket.addEventListener('close',()=>{
-    console.log('Disconnected from Server ');
-});
-
-function handleSubmit(event) {
-    event.preventDefault();//submit의 기본기능을 못하도록 막아주는것! 대신에 이 아래 적힌 코드들 실행하도록!
-    const input = messageForm.querySelector('input');
-    socket.send(makeMessage('new_message',input.value)); //닉네임인지, message인지 구분하는 타입까지 넣은 JSON을 보내야 해서, JSON을 stringtify로 string으로 바꿔서 send해줌@
-    
-    const li = document.createElement('li');
-    li.innerText = `You : ${input.value}`;
-    messageList.append(li);
-    
-    input.value = "";
-}
-
-function handleNickSubmit(event){
+function handleMessageSubmit(event){
     event.preventDefault();
-    const input = nickForm.querySelector('input');
-    socket.send(makeMessage('nickname',input.value));
+    const input = room.querySelector("#msg input");
+    const value = input.value;
+    socket.emit("new_message", input.value, roomName,()=>{
+        addMessage(`You : ${value}`);
+    });
     input.value = "";
 }
 
-messageForm.addEventListener('submit',handleSubmit);
-nickForm.addEventListener('submit',handleNickSubmit);
+function handleNicknameSubmit(event){
+    event.preventDefault();
+    const input = welcome.querySelector("#name input");
+    socket.emit("nickname",input.value);
+    //input.value = "";
+}
+
+function showRoom() {
+    welcome.hidden = true;
+    room.hidden = false;
+
+    const h3 = room.querySelector("h3");
+    h3.innerText = `Room ${roomName}`;
+
+    const msgForm = room.querySelector("#msg");
+    msgForm.addEventListener("submit",handleMessageSubmit);
+    
+}
+
+function handleRoomSubmit(event){
+    event.preventDefault();
+    const input = welcome.querySelector("#enterroom input");
+
+    //room이라는 event를 emit해줌 + argument첨부 가능!(object도 OK! - payload로 input.value보내조!)
+    //emit의 첫번째 : event name, 두번째 : 전송할 payload, 세번째 : 서버에서 호출하는 function(실행은 front에서 함!)
+    socket.emit("enter_room",input.value,showRoom);
+    roomName = input.value;
+    input.value = "";
+    
+}
+const nameForm = welcome.querySelector("#name");
+const roomForm = welcome.querySelector("#enterroom");
+nameForm.addEventListener("submit",handleNicknameSubmit);
+roomForm.addEventListener("submit",handleRoomSubmit);
+
+//socket이 welcome이란 이벤트를 서버로 부터 받으면,
+socket.on("welcome",(nickname) => {
+    addMessage(`${nickname} Joined!`);
+});
+
+socket.on("bye",(nickname)=>{
+    addMessage(`${nickname} Left ㅠㅠ`);
+});
+
+socket.on("new_message",addMessage);

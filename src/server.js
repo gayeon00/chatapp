@@ -1,4 +1,5 @@
-
+import SocketIO from "socket.io"
+import http from "http"
 import express from "express"
 
 //express : http
@@ -16,13 +17,43 @@ app.get('/*',(req,res)=>res.redirect('/')); //catchall : 주소창에 어떤 다
 const handleListen = () => console.log('Listening on http://localhost:5000')
 
 //////////////////////////////////////////////////////// 이까진 http 서버! 이제 여기다가 websocket서버를 합쳐줄거임!
-import http from "http"
 
 //express앱으로 부터 '서버'만듦!(websocket하려면 꼭 필요함!) => 저 서버에 websocket만듦!
-const server = http.createServer(app);
+const httpServer = http.createServer(app);
+const wsServer = SocketIO(httpServer);
 
-import WebSocket from "ws"
-//새로운 websocket서버 만들깅(but 위에서 만든 server를 곁들여서 pass)
+wsServer.on("connection",(socket) =>{
+    socket['nickname'] = "Anon";
+    //socket.on, socket.~~등 모든 이벤트에 대해 작동하도록!   
+    socket.onAny((event)=>{
+        console.log(`Socket Event:${event}`);
+   });
+    //front에서 보낸 event가 도착하면(room이라는 이벤트가 도착하면 + 함께 온 argument) 뫄뫄 해줘라~~
+    //emit의 세번째 argument로 받은 function을 done이라는 이름으로 받음!
+    socket.on("enter_room",(roomName,done) => {
+        //roomName을 가진 room에 join!!
+        socket.join(roomName);
+        //야! 프론트에 가서 이거 좀 실행하라고 해줘라!
+        done();
+        //입장한 room에 있는 "나를 제외한" 모든 사람들에게 welcome이란 이벤트를 emit함!
+        socket.to(roomName).emit("welcome",socket.nickname);
+    });
+
+    //창을 닫았을때 but아직 완전히 연결이 끊기진 않았을때 마지막 작별인사 보낼수 있도록!
+    socket.on("disconnecting",()=>{
+        socket.rooms.forEach((room) => socket.to(room).emit("bye",socket.nickname));
+    });
+
+    socket.on("new_message",(message,roomName,done) => {
+        socket.to(roomName).emit("new_message",`${socket.nickname} : ${message}`);
+        done();
+    });
+
+    socket.on("nickname",(nickname)=> (socket['nickname'] = nickname));
+});
+
+
+/* //새로운 websocket서버 만들깅(but 위에서 만든 server를 곁들여서 pass)
 //이러면 http, websocket서버 둘다 돌릴수 있음! 뭐 http안돌리고 싶으면 안돌려도 ok!
 const wss = new WebSocket.Server({server});
 
@@ -53,7 +84,7 @@ wss.on("connection",(socket)=>{
         
         
     });
-});
+}); */
 
-server.listen(5000,handleListen);
+httpServer.listen(5000,handleListen);
 
