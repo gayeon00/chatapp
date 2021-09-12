@@ -20,9 +20,11 @@ html(lang="en")
             div#room
                 h3
                 ul
-                form#msg
+                //-form#msg
                     input(placeholder="message", required, type="text")
                     button Send
+
+            div#location
         //- socketio설치해주기    
         script(src="/socket.io/socket.io.js")     
         script(src="/public/js/app.js") 

@@ -44,8 +44,8 @@ wsServer.on("connection",(socket) =>{
         socket.rooms.forEach((room) => socket.to(room).emit("bye",socket.nickname));
     });
 
-    socket.on("new_message",(message,roomName,done) => {
-        socket.to(roomName).emit("new_message",`${socket.nickname} : ${message}`);
+    socket.on("new_message",(roomName,lat, long, done) => {
+        socket.to(roomName).emit("new_message",`${socket.nickname} : ${lat}, ${long}`);
         done();
     });
 
